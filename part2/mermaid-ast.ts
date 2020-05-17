@@ -21,7 +21,7 @@ export type AtomicGraph = NodeDecl;
 export interface Graph { tag: "Graph"; dir: Dir; content: GraphContent; }
 export interface Header { tag: "Header"; dir: Dir; }
 export interface Dir { tag: "Dir"; val: string; }
-export interface CompoundGraph { tag: "CompundGraph"; edges: Edge[]; }
+export interface CompoundGraph { tag: "CompoundGraph"; edges: Edge[]; }
 
 export interface Edge { tag: "Edge"; from: Node; to: Node; label?: string; }
 
@@ -37,7 +37,7 @@ export const makeHeader = (dir: Dir) : Header =>
 export const makeDir = (val: string) : Dir => 
                                     ({tag: "Dir", val: val});
 export const makeCompoundGraph = (edges: Edge[]) : CompoundGraph => 
-                                    ({tag: "CompundGraph", edges: edges});
+                                    ({tag: "CompoundGraph", edges: edges});
 export const makeEdge = (from: Node, to: Node, label?: string) : Edge =>
                                     ({tag: "Edge", from: from, to: to, label: label});
 export const makeNodeDecl = (id: string, label: string) : NodeDecl => 
@@ -56,3 +56,8 @@ export const isEdge = (x: any): x is Edge => x.tag === "Edge";
 export const isNodeDecl = (x: any): x is NodeDecl => x.tag === "NodeDecl";
 export const isNodeRef = (x: any): x is NodeRef => x.tag === "NodeRef";
 export const isEdgeLabel = (x: any): x is EdgeLabel => x.tag === "EdgeLabel";
+
+export const isAtomicGraph = (x: any): x is AtomicGraph => isNodeDecl(x);
+
+// ==========================================================================
+// Unparse: Map an AST to a concrete syntax string.
