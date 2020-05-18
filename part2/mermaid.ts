@@ -1,7 +1,7 @@
 import { isAtomicGraph, GraphContent, NodeRef, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, Node, makeNodeDecl, AtomicGraph, isNodeDecl, makeNodeRef, isCompoundGraph, isNodeRef } from "./mermaid-ast"
 import { isCompoundExp, CompoundExp, isIfExp, isProcExp, isLetExp, isLitExp, IfExp, LetExp, LitExp, LetrecExp, SetExp, isStrExp, isPrimOp, isAtomicExp, isAppExp, Parsed, Exp, isProgram, Program, isNumExp, isExp, isVarRef, makeAppExp, isDefineExp, DefineExp, CExp, isCExp, isBoolExp, VarDecl, parseL4, parseL4Exp, AppExp, isLetrecExp, isSetExp, ProcExp } from "./L4-ast"
 import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
-import { allT, first, second } from "../shared/list"
+import { allT, first, second, rest } from "../shared/list"
 import { union, chain, filter, map, zip, repeat, replace, contains, slice } from "ramda";
 import { isArray } from "util";
 import {  } from "../L3/L3-ast";
@@ -11,14 +11,14 @@ export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
     isExp(exp) ? mapExpToMermaid(exp) :
     makeFailure("mapL4toMermaid Not an option");
 
-export const mapProgramtoMermaid2 = (program: Program): Result<Graph> =>
+export const mapProgramtoMermaid = (program: Program): Result<Graph> =>
     bind(mapCompoundExptoContent(program), 
             (proGraph: CompoundGraph): Result<Graph> =>
                 bind(renameNodes(proGraph.edges),
                 (edges: Edge[]): Result<Graph> =>
                     makeOk(makeGraph(makeDir("TD"), makeCompoundGraph(edges)))))
 
-export const mapProgramtoMermaid = (program: Program): Result<Graph> =>
+export const mapProgramtoMermaid2 = (program: Program): Result<Graph> =>
     bind(mapResult(mapExptoContent, program.exps), 
     
         (graphs: GraphContent[]): Result<Graph> => 
@@ -36,12 +36,7 @@ export const mapProgramtoMermaid = (program: Program): Result<Graph> =>
             makeFailure("mapProgramtoMermaid impossible"))
 
 export const mapExpToMermaid = (exp: Exp): Result<Graph> =>
-/*
-bind(mapExptoContent(exp),
-                    (g: GraphContent): Result<Graph> => 
-                        makeOk(makeGraph(makeDir("TD"), g))):
-                        */
-    makeFailure("not implemenetd");
+    makeFailure("mapExpToMermaid: not implemenetd");
 
 export const mapExptoContent = (exp: Exp): Result<GraphContent> =>   
     isDefineExp(exp) ? mapCompoundExptoContent(exp) :
@@ -81,8 +76,8 @@ export const mapArraytoContent = (arr: Exp[], id: string) : Result<CompoundGraph
 
 
 export const mapCompoundExptoContent = (expParent: CompoundExp | Program | DefineExp): Result<CompoundGraph> => {
-    const keys = slice(1, Infinity, Object.keys(expParent));
-    const values = slice(1, Infinity, Object.values(expParent));
+    const keys = rest(Object.keys(expParent));
+    const values = rest(Object.values(expParent));
     
     // For each value in exp (which can be an array or a single exp) do the following
     return bind(mapResult((e: Exp | Exp[]): Result<CompoundGraph> =>
@@ -100,14 +95,13 @@ export const mapCompoundExptoContent = (expParent: CompoundExp | Program | Defin
             // Otherwise, if the value is a single Exp
             : bind(mapExptoContent(e), 
                 (singleValueGraph: GraphContent): Result<CompoundGraph> =>
-                connectEdgeToGraphRoot(makeEdge(makeNodeDecl(expParent.tag, expParent.tag), 
+                connectEdgeToGraphRoot(makeEdge(makeNodeRef(expParent.tag), 
                                                 makeNodeDecl("temp", "temp"),
                                                 keys[values.indexOf(e)]), 
                                                 singleValueGraph))
             , values), 
-
             (graphs: CompoundGraph[]): Result<CompoundGraph> =>
-                joinGraphsEdges(graphs)
+                bind(joinGraphsEdges(graphs), changeRootToNodeDecl)
             )
 }
 
@@ -137,10 +131,33 @@ export const getGraphRoot = (graph: GraphContent) : Result<Node> =>
 export const connectEdgeToGraphRoot = (top: Edge, graph: GraphContent): Result<CompoundGraph> =>
     bind(getGraphRoot(graph),
         (root: Node): Result<CompoundGraph> => 
-            isCompoundGraph(graph) ? joinEdgeToGraph(makeEdge(top.from, root, top.label), graph) :
-            isAtomicGraph(graph) ? makeOk(makeCompoundGraph([makeEdge(top.from, root, top.label)])) :    
-            makeFailure("connectEdgeToGraphRoot: Not an option"))
+            isNodeRef(root) ? 
+                isCompoundGraph(graph) ? joinEdgeToGraph(makeEdge(top.from, root, top.label), graph) :
+                isAtomicGraph(graph) ? makeOk(makeCompoundGraph([makeEdge(top.from, root, top.label)])) :    
+                makeFailure("connectEdgeToGraphRoot: Not an option (1)"):
+            
+            isNodeDecl(root) ?
+                isCompoundGraph(graph) ? 
+                    joinEdgeToGraph(makeEdge(top.from, root, top.label), 
+                                    makeCompoundGraph(chain((x)=>x, 
+                                        [[makeEdge(makeNodeRef(root.id),
+                                                   first(graph.edges).to,
+                                                   first(graph.edges).label)],
+                                          rest(graph.edges)]))) :
+                isAtomicGraph(graph) ? makeOk(makeCompoundGraph([makeEdge(top.from, root, top.label)])) : 
+                makeFailure("connectEdgeToGraphRoot: Not an option (2)")://"connectEdgeToGraphRoot: Not an option, atomic graph is always a NodeDecl") :
+            makeFailure("connectEdgeToGraphRoot: Not an option (3)")
+        )
 
+
+export const changeRootToNodeDecl = (graph: CompoundGraph): Result<CompoundGraph> => 
+    safe2((root: Node, edges: Edge[]) => makeOk(makeCompoundGraph(chain((x)=>x, 
+                                        [[makeEdge(makeNodeDecl(root.id, root.id),
+                                                first(edges).to,
+                                                first(edges).label)],
+                                        rest(edges)]))))
+    (getGraphRoot(graph), makeOk(graph.edges))
+    
 /*
     Takes an array of edges an change each node id to a unique name
 */
@@ -191,7 +208,7 @@ export const makeVarGen = (): (v: string, inc: boolean) => string => {
 
 console.log(
     //"*",
-    JSON.stringify(bind(parseL4("(L4 (+ 2 5))"),
+    JSON.stringify(bind(parseL4("(L4 (+ 2 5) (/ 18 2))"),
         (x: Parsed): Result<Graph> => mapL4toMermaid(x))),
     //"**",
 );
