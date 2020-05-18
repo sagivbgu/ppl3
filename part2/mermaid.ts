@@ -1,6 +1,6 @@
-import { isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, Node, makeNodeDecl, AtomicGraph, isNodeDecl, makeNodeRef, isCompoundGraph, isNodeRef } from "./mermaid-ast"
+import { isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, Node, makeNodeDecl, AtomicGraph, isNodeDecl, makeNodeRef, isCompoundGraph, isNodeRef, unparseMermaid } from "./mermaid-ast"
 import { VarDecl, isVarDecl, isCompoundExp, CompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, DefineExp, CExp, isCExp, parseL4, parseL4Exp } from "./L4-ast"
-import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
+import { isOk, Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
 import { first, rest } from "../shared/list"
 import { union, chain, map } from "ramda";
 import { isArray, isNumber, isString, isBoolean } from "util";
@@ -351,6 +351,15 @@ export const makeVarGen = (): (v: string, inc: boolean) => string => {
 ////////////////////////////////////////////////////
 //  TODO: DELETE!
 //////////////////////////////////////////////////// 
+let x = (bind(parseL4("(L4 (define my-list '(1 2)))"),
+(x: Parsed): Result<string> => bind(mapL4toMermaid(x), unparseMermaid)))
+isOk(x) ? console.log(x.value) : console.log(x.message)
+console.log("###########################################")
+
+let y = parseL4("(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1))");
+isOk(y) ? console.log(JSON.stringify(y.value)) : console.log(y.message);
+//(x: Parsed): Result<string> => bind(mapL4toMermaid(x), unparseMermaid)))
+//isOk(x) ? console.log(x.value) : console.log(x.message)
 
 console.log(
     //"*",
@@ -364,6 +373,6 @@ console.log(
     //    (x: Parsed): Result<Graph> => mapL4toMermaid(x)))
     //JSON.stringify(bind(parseL4("(L4 (lambda (x) ((+ x x)) 1))"),
     //    (x: Parsed): Result<Graph> => mapL4toMermaid(x)))
-    JSON.stringify(bind(parseL4("(L4 (define my-list '(1 2)))"),
-        (x: Parsed): Result<Graph> => mapL4toMermaid(x)))
+    //JSON.stringify(bind(parseL4("(L4 (define my-list '(1 2)))"),
+    //    (x: Parsed): Result<string> => bind(mapL4toMermaid(x), unparseMermaid))),
 );

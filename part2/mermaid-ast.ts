@@ -1,3 +1,6 @@
+import { Result, makeOk, makeFailure, bind, mapResult, safe2, safe3, isOk } from "../shared/result";
+import { isEmpty, map, chain, reduce } from "ramda";
+
 /*
     <graph> ::= <header> <graphContent>     // Graph(dir: Dir, content: GraphContent)
     <header> ::= graph (TD|LR)<newline>     // Direction can be TD or LR
@@ -61,3 +64,36 @@ export const isAtomicGraph = (x: any): x is AtomicGraph => isNodeDecl(x);
 
 // ==========================================================================
 // Unparse: Map an AST to a concrete syntax string.
+
+
+export const unparseMermaid = (g: Graph): Result<string> =>
+    bind(unparseGraphContent(g.content), 
+        (contentStr: string): Result<string> =>
+            makeOk(`graph ${g.dir.val}${contentStr}`))
+
+export const unparseGraphContent = (gc: GraphContent): Result<string> =>
+    isCompoundGraph(gc) ? unparseCompoundGraph(gc) :
+    isAtomicGraph(gc) ? unparseNode(gc) :
+    makeFailure("unparseGraphContent: Not an option")
+
+export const unparseCompoundGraph = (g: CompoundGraph): Result<string> =>
+    bind(mapResult(unparseEdge, g.edges), 
+        (edgeStrs: string[]): Result<string> =>
+            makeOk(reduce(concatLines,"" , edgeStrs)))
+
+export const concatLines = (strA: string, strB: string): string =>
+    strA + '\n\t' + strB
+
+export const unparseEdge = (edge: Edge): Result<string> =>
+    safe2((fromNode: string, toNode: string): Result<string> => 
+        
+        edge.label !== undefined ? 
+            makeOk(`${fromNode} -->|${edge.label}|${toNode}`) :
+        makeOk(`${fromNode} -->${toNode}`))
+        
+        (unparseNode(edge.from), (unparseNode(edge.to))) 
+
+export const unparseNode = (node: Node): Result<string> =>
+    isNodeRef(node) ? makeOk(`${node.id}`) :
+    isNodeDecl(node) ? makeOk(`${node.id}["${node.label}"]`) :
+    makeFailure("unparseNode: not an option")
