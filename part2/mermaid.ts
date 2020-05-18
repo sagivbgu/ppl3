@@ -2,7 +2,7 @@ import { isAtomicGraph, GraphContent, NodeRef, Graph, makeGraph, makeDir, makeCo
 import { isCompoundExp, CompoundExp, isIfExp, isProcExp, isLetExp, isLitExp, IfExp, LetExp, LitExp, LetrecExp, SetExp, isStrExp, isPrimOp, isAtomicExp, isAppExp, Parsed, Exp, isProgram, Program, isNumExp, isExp, isVarRef, makeAppExp, isDefineExp, DefineExp, CExp, isCExp, isBoolExp, VarDecl, parseL4, parseL4Exp, AppExp, isLetrecExp, isSetExp, ProcExp } from "./L4-ast"
 import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
 import { allT, first, second } from "../shared/list"
-import { chain, filter, map, zip, repeat, replace, contains, slice } from "ramda";
+import { union, chain, filter, map, zip, repeat, replace, contains, slice } from "ramda";
 import { isArray } from "util";
 import {  } from "../L3/L3-ast";
 
@@ -11,8 +11,14 @@ export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
     isExp(exp) ? mapExpToMermaid(exp) :
     makeFailure("mapL4toMermaid Not an option");
 
+export const mapProgramtoMermaid2 = (program: Program): Result<Graph> =>
+    bind(mapCompoundExptoContent(program), 
+            (proGraph: CompoundGraph): Result<Graph> =>
+                bind(renameNodes(proGraph.edges),
+                (edges: Edge[]): Result<Graph> =>
+                    makeOk(makeGraph(makeDir("TD"), makeCompoundGraph(edges)))))
+
 export const mapProgramtoMermaid = (program: Program): Result<Graph> =>
-// TODO: like this: Program_1[Program] -->|exps| Exps_1[:] 
     bind(mapResult(mapExptoContent, program.exps), 
     
         (graphs: GraphContent[]): Result<Graph> => 
@@ -38,12 +44,9 @@ bind(mapExptoContent(exp),
     makeFailure("not implemenetd");
 
 export const mapExptoContent = (exp: Exp): Result<GraphContent> =>   
-    isDefineExp(exp) ? mapDefinetoContent(exp) :
+    isDefineExp(exp) ? mapCompoundExptoContent(exp) :
     isCExp(exp) ? mapCExptoContent(exp) :
     makeFailure("mapExptoContent Not an option");
-
-export const mapDefinetoContent = (exp: DefineExp): Result<CompoundGraph> =>
-    makeFailure("mapDefinetoMermaid Not implemented");
 
 /*
 
@@ -77,7 +80,7 @@ export const mapArraytoContent = (arr: Exp[], id: string) : Result<CompoundGraph
     )
 
 
-export const mapCompoundExptoContent = (expParent: CompoundExp): Result<CompoundGraph> => {
+export const mapCompoundExptoContent = (expParent: CompoundExp | Program | DefineExp): Result<CompoundGraph> => {
     const keys = slice(1, Infinity, Object.keys(expParent));
     const values = slice(1, Infinity, Object.values(expParent));
     
@@ -142,9 +145,11 @@ export const connectEdgeToGraphRoot = (top: Edge, graph: GraphContent): Result<C
     Takes an array of edges an change each node id to a unique name
 */
 export const renameNodes = (edges: Edge[]): Result<Edge[]> => {
-    const types = ["AppExp", "NumExp", "PrimOp", "Rands", "rands", "rator"];
-    const varGens = map((x: string): (v: string, inc: boolean) => string => 
-                            makeVarGen(), types)
+    const upperCaseFirstLetter = (s: string) : string => 
+        s.charAt(0).toUpperCase() + s.substring(1)
+
+    const generateTypes = (edges: Edge[]): string[] => 
+        union([], chain((e: Edge): string[] => [e.from.id, e.to.id], edges))
 
     const renameEdge = (e: Edge): Result<Edge> => 
         safe2((from: Node, to: Node) => makeOk(makeEdge(from, to, e.label)))
@@ -154,10 +159,15 @@ export const renameNodes = (edges: Edge[]): Result<Edge[]> => {
         const pos = types.indexOf(n.id);
         const varGen = varGens[pos]
 
-        return  isNodeDecl(n) ? makeOk(makeNodeDecl(varGen(n.id, true), n.label)) :
-                isNodeRef(n) ? makeOk(makeNodeRef(varGen(n.id, false))) :
+        return  isNodeDecl(n) ? makeOk(makeNodeDecl(upperCaseFirstLetter(varGen(n.id, true)), n.label)) :
+                isNodeRef(n) ? makeOk(makeNodeRef(upperCaseFirstLetter(varGen(n.id, false)))) :
                 makeFailure("renameNode: Not an option")
     };
+
+    const types = generateTypes(edges);
+
+    const varGens = map((x: string): (v: string, inc: boolean) => string => 
+                            makeVarGen(), types)
 
     return mapResult(renameEdge ,edges)
 };
@@ -179,49 +189,9 @@ export const makeVarGen = (): (v: string, inc: boolean) => string => {
     };
 };
 
-const a = makeEdge(makeNodeRef("a"), makeNodeRef("b"), "c");
-
 console.log(
     //"*",
     JSON.stringify(bind(parseL4("(L4 (+ 2 5))"),
         (x: Parsed): Result<Graph> => mapL4toMermaid(x))),
     //"**",
 );
-
-/*export const mapAppExptoContent = (exp: AppExp): Result<CompoundGraph> => 
-    safe2((rator: CompoundGraph, rands: CompoundGraph) => joinGraphsEdges([rator, rands]))
-    
-    // Create the rator Graph
-    (bind(mapCExptoContent(exp.rator),
-         (ratorGraph: GraphContent): Result<CompoundGraph> =>
-            connectEdgeToGraphRoot(makeEdge(makeNodeDecl(exp.tag, exp.tag), 
-                                            makeNodeDecl("temp", "temp"), 
-                                            "rator"), ratorGraph)),
-    // Create the rands Graph
-    bind(mapArraytoContent(exp.rands, "Rands"),
-        (randsGraph: CompoundGraph): Result<CompoundGraph> =>
-            joinEdgeToGraph(makeEdge(makeNodeRef(exp.tag), makeNodeDecl("Rands", ":"), "rands"), randsGraph)
-    ))
-*/
-
-/*export const mapVarDecltoContent = (exp: VarDecl, id: string): Result<Node> =>
-    makeFailure("mapVarDecltoMermaid:  Not implemented");
-
-export const mapIfExptoContent = (exp: IfExp): Result<CompoundGraph> =>
-    makeFailure("mapIfExpltoContent:  Not implemented");
-
-export const mapProcExptoContent = (exp: ProcExp): Result<CompoundGraph> =>
-    makeFailure("mapProcExpltoContent:  Not implemented");
-
-export const mapLetExptoContent = (exp: LetExp): Result<CompoundGraph> =>
-    makeFailure("mapLetExpltoContent:  Not implemented");
-
-export const mapLitExptoContent = (exp: LitExp): Result<CompoundGraph> =>
-    makeFailure("mapLitExpltoContent:  Not implemented");
-
-export const mapLetrecExptoContent = (exp: LetrecExp): Result<CompoundGraph> =>
-    makeFailure("mapLetrecExpltoContent:  Not implemented");
-
-export const mapSetExptoContent = (exp: SetExp): Result<CompoundGraph> =>
-    makeFailure("maSetExpltoContent:  Not implemented");
-*/
