@@ -1,5 +1,5 @@
-import { Result, makeOk, makeFailure, bind, mapResult, safe2, safe3, isOk } from "../shared/result";
-import { isEmpty, map, chain, reduce } from "ramda";
+import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
+import { reduce } from "ramda";
 
 /*
     <graph> ::= <header> <graphContent>     // Graph(dir: Dir, content: GraphContent)
@@ -21,7 +21,7 @@ export type GraphContent = AtomicGraph | CompoundGraph;
 export type Node = NodeDecl | NodeRef;
 export type AtomicGraph = NodeDecl;
 
-export interface Graph { tag: "Graph"; dir: Dir; content: GraphContent; }
+export interface Graph { tag: "Graph"; header: Header; content: GraphContent; }
 export interface Header { tag: "Header"; dir: Dir; }
 export interface Dir { tag: "Dir"; val: string; }
 export interface CompoundGraph { tag: "CompoundGraph"; edges: Edge[]; }
@@ -33,8 +33,8 @@ export interface NodeRef { tag: "NodeRef"; id: string; }
 export interface EdgeLabel {tag: "EdgeLabel"; label: string; }
 
 // Type value constructors for disjoint types
-export const makeGraph = (dir: Dir, content: GraphContent) : Graph => 
-                                    ({tag: "Graph", dir: dir, content: content});
+export const makeGraph = (head: Header, content: GraphContent) : Graph => 
+                                    ({tag: "Graph", header: head, content: content});
 export const makeHeader = (dir: Dir) : Header => 
                                     ({tag: "Header", dir: dir});
 export const makeDir = (val: string) : Dir => 
@@ -66,11 +66,16 @@ export const isGraphContent = (x: any): x is GraphContent => isAtomicGraph(x) ||
 // ==========================================================================
 // Unparse: Map an AST to a concrete syntax string.
 
-
+/*  === Question 2.3 ===
+    Signature: unparseMermaid(g)
+    Type: [Graph -> Result<string>]
+    Purpose: Convert a Mermaid Graph AST to a concrete syntax string
+    Pre-conditions: true
+*/
 export const unparseMermaid = (g: Graph): Result<string> =>
     bind(unparseGraphContent(g.content), 
         (contentStr: string): Result<string> =>
-            makeOk(`graph ${g.dir.val}${contentStr}`))
+            makeOk(`graph ${g.header.dir.val}${contentStr}`))
 
 export const unparseGraphContent = (gc: GraphContent): Result<string> =>
     isCompoundGraph(gc) ? unparseCompoundGraph(gc) :
