@@ -61,6 +61,7 @@ export const isNodeRef = (x: any): x is NodeRef => x.tag === "NodeRef";
 export const isEdgeLabel = (x: any): x is EdgeLabel => x.tag === "EdgeLabel";
 
 export const isAtomicGraph = (x: any): x is AtomicGraph => isNodeDecl(x);
+export const isGraphContent = (x: any): x is GraphContent => isAtomicGraph(x) || isCompoundGraph(x);
 
 // ==========================================================================
 // Unparse: Map an AST to a concrete syntax string.
