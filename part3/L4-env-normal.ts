@@ -20,46 +20,29 @@ import { Result, makeOk, makeFailure } from '../shared/result';
 
 // ========================================================
 // Environment data type
-export type Env = EmptyEnv | ExtEnv | RecEnv;
-export interface EmptyEnv {tag: "EmptyEnv" }
-export interface ExtEnv {
-    tag: "ExtEnv";
+export type NormalEnv = EmptyNormalEnv | ExtNormalEnv;
+export interface EmptyNormalEnv {tag: "EmptyNormalEnv" }
+export interface ExtNormalEnv {
+    tag: "ExtNormalEnv";
     vars: string[];
-    vals: Value[];
-    nextEnv: Env;
-}
-export interface RecEnv {
-    tag: "RecEnv";
-    vars: string[];
-    paramss: VarDecl[][];
-    bodiess: CExp[][];
-    nextEnv: Env;
+    vals: CExp[];
+    nextEnv: NormalEnv;
 }
 
-export const makeEmptyEnv = (): EmptyEnv => ({tag: "EmptyEnv"});
-export const makeExtEnv = (vs: string[], vals: Value[], env: Env): ExtEnv =>
-    ({tag: "ExtEnv", vars: vs, vals: vals, nextEnv: env});
-export const makeRecEnv = (vs: string[], paramss: VarDecl[][], bodiess: CExp[][], env: Env): RecEnv =>
-    ({tag: "RecEnv", vars: vs, paramss: paramss, bodiess: bodiess, nextEnv: env});
+export const makeEmptyNormalEnv = (): EmptyNormalEnv => ({tag: "EmptyNormalEnv"});
+export const makeExtNormalEnv = (vs: string[], vals: CExp[], env: NormalEnv): ExtNormalEnv =>
+    ({tag: "ExtNormalEnv", vars: vs, vals: vals, nextEnv: env});
 
-const isEmptyEnv = (x: any): x is EmptyEnv => x.tag === "EmptyEnv";
-const isExtEnv = (x: any): x is ExtEnv => x.tag === "ExtEnv";
-const isRecEnv = (x: any): x is RecEnv => x.tag === "RecEnv";
+export const isEmptyNormalEnv = (x: any): x is EmptyNormalEnv => x.tag === "EmptyNormalEnv";
+export const isExtNormalEnv = (x: any): x is ExtNormalEnv => x.tag === "ExtNormalEnv";
 
-export const isEnv = (x: any): x is Env => isEmptyEnv(x) || isExtEnv(x) || isRecEnv(x);
+export const isEnv = (x: any): x is NormalEnv => isEmptyNormalEnv(x) || isExtNormalEnv(x);
 
 // Apply-env
-export const applyEnv = (env: Env, v: string): Result<Value> =>
-    isEmptyEnv(env) ? makeFailure(`var not found ${v}`) :
-    isExtEnv(env) ? applyExtEnv(env, v) :
-    applyRecEnv(env, v);
+export const applyNormalEnv = (env: NormalEnv, v: string): Result<CExp> =>
+    isEmptyNormalEnv(env) ? makeFailure(`var not found ${v}`) :
+    applyExtNormalEnv(env, v);
 
-const applyExtEnv = (env: ExtEnv, v: string): Result<Value> =>
+export const applyExtNormalEnv = (env: ExtNormalEnv, v: string): Result<CExp> =>
     env.vars.includes(v) ? makeOk(env.vals[env.vars.indexOf(v)]) :
-    applyEnv(env.nextEnv, v);
-
-const applyRecEnv = (env: RecEnv, v: string): Result<Value> =>
-    env.vars.includes(v) ? makeOk(makeClosure(env.paramss[env.vars.indexOf(v)],
-                                              env.bodiess[env.vars.indexOf(v)],
-                                              env)) :
-    applyEnv(env.nextEnv, v);
+    applyNormalEnv(env.nextEnv, v);

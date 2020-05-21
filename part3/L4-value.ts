@@ -3,14 +3,15 @@
 
 import { isPrimOp, CExp, PrimOp, VarDecl } from './L4-ast';
 import { Env } from './L4-env';
+import { NormalEnv } from './L4-env-normal';
 import { append } from 'ramda';
 import { isArray, isNumber, isString } from '../shared/type-predicates';
 
 
-export type Value = SExpValue | Closure;
+export type Value = SExpValue | Closure | NormalClosure;
 
-export type Functional = PrimOp | Closure;
-export const isFunctional = (x: any): x is Functional => isPrimOp(x) || isClosure(x);
+export type Functional = PrimOp | Closure | NormalClosure;
+export const isFunctional = (x: any): x is Functional => isPrimOp(x) || isClosure(x) || isNormalClosure(x);
 
 // ========================================================
 // Closure for L4 - the field env is added.
@@ -24,6 +25,17 @@ export interface Closure {
 export const makeClosure = (params: VarDecl[], body: CExp[], env: Env): Closure =>
     ({tag: "Closure", params: params, body: body, env: env});
 export const isClosure = (x: any): x is Closure => x.tag === "Closure";
+
+// A closure holding a NormalEval
+export interface NormalClosure {
+    tag: "NormalClosure";
+    params: VarDecl[];
+    body: CExp[];
+    env: NormalEnv;
+}
+export const makeNormalClosure = (params: VarDecl[], body: CExp[], env: NormalEnv): NormalClosure =>
+    ({tag: "NormalClosure", params: params, body: body, env: env});
+export const isNormalClosure = (x: any): x is NormalClosure => x.tag === "NormalClosure";
 
 // ========================================================
 // SExp
@@ -40,7 +52,7 @@ export interface SymbolSExp {
     val: string;
 }
 
-export type SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp;
+export type SExpValue = number | boolean | string | PrimOp | Closure | NormalClosure | SymbolSExp | EmptySExp | CompoundSExp;
 export const isSExp = (x: any): x is SExpValue =>
     typeof(x) === 'string' || typeof(x) === 'boolean' || typeof(x) === 'number' ||
     isSymbolSExp(x) || isCompoundSExp(x) || isEmptySExp(x) || isPrimOp(x) || isClosure(x);
