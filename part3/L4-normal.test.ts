@@ -137,4 +137,61 @@ describe('L4 Normal Eval', () => {
                 (define g (lambda (x) 5))
                 (g (f 0)))`), evalNormalProgram)).to.deep.equal(makeOk(5));
     });
+
+    it('additional test 1', () => {
+        expect(bind(parseL4(`(L4
+                                  (define x 999)
+                                  (define y 5)
+                                  (define f
+                                  (lambda (x)
+                                    (if (= x 0)
+                                        1
+                                        (* x (f (- x 1))))))
+                                (f y))`), evalNormalProgram)).to.deep.equal(makeOk(120));
+
+        expect(bind(parseL4(`(L4
+                                  (define x 5)
+                                  (define y 999)
+                                  (define f
+                                  (lambda (x)
+                                    (if (= x 0)
+                                        (let ((x 1)) x)
+                                        (* x (f (- x 1))))))
+                                (f x))`), evalNormalProgram)).to.deep.equal(makeOk(120));
+    });
+
+    it('additional test 2', () => {
+        expect(bind(parseL4(`(L4 (let ((a 1) (b #t)) (if b a (+ a 1))))`), evalNormalProgram)).to.deep.equal(makeOk(1));
+
+        expect(bind(parseL4(`(L4 (let ((f (lambda (n) (if (= n 0) 1 (* n (f (- n 1))))))) (f 5)))`), evalNormalProgram)).to.deep.equal(makeOk(120));
+    });
+
+    it('additional test 3', () => {
+        expect(bind(parseL4(`(L4 (define f (lambda (x y)
+                                (if (= x y)
+                                    (let ((y (* x x))) y)
+                                    (f (- x 1) (+ y 1)))))
+                                (f 9 5))`), evalNormalProgram)).to.deep.equal(makeOk(49));
+    });
+
+    it('additional test 4 - properly captures variables in closures', () => {
+        expect(bind(parseL4(`
+            (L4 (define makeAdder (lambda (n) (lambda (y) (+ y n))))
+                (define a6 (makeAdder 6))
+                (define a7 (makeAdder 7))
+                (+ (a6 1) (a7 1)))`), evalNormalProgram)).to.deep.equal(makeOk(15));
+    });
+
+    it('additional test 5 - evaluates mutual recursion', () => {
+        expect(bind(parseL4(`
+            (L4 (define odd? (lambda (n) (if (= n 0) #f (even? (- n 1)))))
+                (define even? (lambda (n) (if (= n 0) #t (odd? (- n 1)))))
+                (and (odd? 5) (even? 6)))`), evalNormalProgram)).to.deep.equal(makeOk(true));
+    });
+
+    it('additional test 6 - example from the clarification', () => {
+        expect(bind(parseL4(`(L4 (define id (lambda (x) x))
+                                (define x 5)
+                                (id (- x 1)))`), evalNormalProgram)).to.deep.equal(makeOk(4));
+    });
 });
