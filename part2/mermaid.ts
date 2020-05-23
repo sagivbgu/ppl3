@@ -1,10 +1,50 @@
-import { makeHeader, isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, makeNodeDecl, AtomicGraph, makeNodeRef, isCompoundGraph, unparseMermaid } from "./mermaid-ast"
-import { AtomicExp, VarDecl, isVarDecl, isCompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, parseL4 } from "./L4-ast"
-import { isOk, Result, makeOk, makeFailure, bind, mapResult } from "../shared/result";
-import { rest } from "../shared/list"
+import { Node, isNodeRef, isNodeDecl, makeHeader, isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, makeNodeDecl, AtomicGraph, makeNodeRef, isCompoundGraph } from "./mermaid-ast"
+import { parseL4Exp, parseL4Program, AtomicExp, VarDecl, isVarDecl, isCompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, parseL4 } from "./L4-ast"
+import { isOk, Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
+import { rest, isEmpty, first } from "../shared/list"
 import { union, chain, map, reduce } from "ramda";
-import { isArray, isNumber, isString, isBoolean } from "util";
+import { parse as p, isToken } from "../shared/parser";
+import { isArray, isNumber, isString, isBoolean } from "../shared/type-predicates"
 import { SExpValue, isSymbolSExp, isEmptySExp, EmptySExp, SymbolSExp, CompoundSExp, isCompoundSExp } from "./L4-value"
+import { Sexp, Token, CompoundSexp } from "s-expression";
+
+/*  === Question 2.3 ===
+    Signature: unparseMermaid(g)
+    Type: [Graph -> Result<string>]
+    Purpose: Convert a Mermaid Graph AST to a concrete syntax string
+    Pre-conditions: true
+*/
+export const unparseMermaid = (g: Graph): Result<string> =>
+    bind(unparseGraphContent(g.content), 
+        (contentStr: string): Result<string> =>
+            makeOk(`graph ${g.header.dir.val}${contentStr}`))
+
+export const unparseGraphContent = (gc: GraphContent): Result<string> =>
+    isCompoundGraph(gc) ? unparseCompoundGraph(gc) :
+    isAtomicGraph(gc) ? unparseNode(gc) :
+    makeFailure("unparseGraphContent: Not an option")
+
+export const unparseCompoundGraph = (g: CompoundGraph): Result<string> =>
+    bind(mapResult(unparseEdge, g.edges), 
+        (edgeStrs: string[]): Result<string> =>
+            makeOk(reduce(concatLines,"" , edgeStrs)))
+
+export const concatLines = (strA: string, strB: string): string =>
+    strA + '\n\t' + strB
+
+export const unparseEdge = (edge: Edge): Result<string> =>
+    safe2((fromNode: string, toNode: string): Result<string> => 
+        
+        edge.label !== undefined ? 
+            makeOk(`${fromNode} -->|${edge.label}| ${toNode}`) :
+        makeOk(`${fromNode} --> ${toNode}`))
+        
+        (unparseNode(edge.from), (unparseNode(edge.to))) 
+
+export const unparseNode = (node: Node): Result<string> =>
+    isNodeRef(node) ? makeOk(`${node.id}`) :
+    isNodeDecl(node) ? makeOk(`${node.id}["${node.label}"]`) :
+    makeFailure("unparseNode: not an option")
 
 /*  === Question 2.3 ===
     Signature: L4toMermaid(concrete)
@@ -14,10 +54,25 @@ import { SExpValue, isSymbolSExp, isEmptySExp, EmptySExp, SymbolSExp, CompoundSE
     Pre-conditions: true
 */
 export const L4toMermaid = (concrete: string): Result<string> =>
-    (bind(parseL4(concrete),
-        (p: Program): Result<string> =>
-            bind(mapL4toMermaid(p), unparseMermaid)))
+bind(p(concrete), 
+    (sexp: Sexp): Result<string> =>
+        sexp === "" || isEmpty(sexp) ? makeFailure("Unexpected empty program") :
+        isToken(sexp) ? makeFailure("Program cannot be a single token") :
+        isArray(sexp) ?
+            first(sexp) === "L4" ? L4ProgramToMermaid(sexp) :
+            L4ExpToMermaid(sexp) :
+        makeFailure("Unexpected type " + sexp))
 
+export const L4ProgramToMermaid = (sexp: Sexp) : Result<string> =>
+    bind(parseL4Program(sexp), 
+        (p: Program): Result<string> => 
+            bind(mapL4toMermaid(p), unparseMermaid))
+
+export const L4ExpToMermaid = (sexp: Sexp): Result<string> =>
+    bind(parseL4Exp(sexp), 
+        (p: Exp): Result<string> => 
+            bind(mapL4toMermaid(p), unparseMermaid))
+        
 /*  === Question 2.2 ===
     Signature: mapL4toMermaid(exp)
     Type: [Parsed -> Result<Graph>]
@@ -56,8 +111,15 @@ export const mapProgramtoMermaid = (program: Program): Result<Graph> => {
 */
 export const mapExpToMermaid = (exp: Exp): Result<Graph> => {
     const newName = renameVars([exp.tag], [])
-    return bind(mapExptoContent(exp, newName[0], newName), (g: GraphContent): Result<Graph> =>
-        makeOk(makeGraph(makeHeader(makeDir("TD")), g)))
+    return bind(mapExptoContent(exp, newName[0], newName), 
+            (g: GraphContent): Result<Graph> =>
+                isCompoundGraph(g) ? bind(changeRootToNodeDecl(g, exp.tag), 
+                                        (c: CompoundGraph): Result<Graph> =>
+                                            
+                                        makeOk(makeGraph(makeHeader(makeDir("TD")), c))) :
+                isAtomicGraph(g) ?
+                    makeOk(makeGraph(makeHeader(makeDir("TD")), g)) :
+                makeFailure("mapExpToMermaid: Not an option"))
 }
 
 /*
@@ -236,6 +298,32 @@ export const joinGraphsEdges = (graphs: GraphContent[]) : Result<CompoundGraph> 
                                 isCompoundGraph(g) ? g.edges : []
                             ,graphs)))
 
+/*
+    Signature: getGraphRoot(graph)
+    Type: [GraphContent -> Result<Node>]
+    Purpose: return a copy of the first Node in the Edges list
+    Pre-conditions: true
+*/
+export const getGraphRoot = (graph: GraphContent) : Result<Node> => 
+    isCompoundGraph(graph) ? makeOk(graph.edges[0].from) :
+    isAtomicGraph(graph) ? makeOk(graph) :
+    makeFailure("getGraphRoot: Not an option");
+
+/*
+    Signature: changeRootToNodeDecl(graph)
+    Type: [CompoundGraph -> Result<CompoundGraph>]
+    Purpose: change the first node in the first edge to NodeDecl
+    Pre-conditions: true
+*/
+export const changeRootToNodeDecl = (graph: CompoundGraph, label: string): Result<CompoundGraph> => 
+safe2((root: Node, edges: Edge[]) => 
+    joinGraphsEdges(
+        [makeCompoundGraph([makeEdge(makeNodeDecl(root.id, label),
+                                     first(edges).to,
+                                     first(edges).label)]),
+         makeCompoundGraph(rest(edges))]))
+
+(getGraphRoot(graph), makeOk(graph.edges))
 
 ////////////////////////////////////////////////////
 //  Utility Methods regarding Renaming Nodes
@@ -324,8 +412,11 @@ export const extractNodesIdsFromContents = (contents: GraphContent[]) : string[]
 //  TODO: DELETE!
 //////////////////////////////////////////////////// 
 
-//let x = L4toMermaid("(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1))")
+let x = L4toMermaid("(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1))")
 //let x = L4toMermaid("(L4 (define my-list '(1 2)))")
 //let x = L4toMermaid("(L4 (+ 2 5))")
-let x = L4toMermaid("(L4 (+ (/ 18 2) (* 7 17)))")
+//let x = L4toMermaid("(L4 (+ (/ 18 2) (* 7 17)))")
+//let x = L4toMermaid("(define my-list '(1 2))")
+//let x = L4toMermaid("(L4 1 #t “hello”)")
+//let x = L4toMermaid("(L4 \"hello\")")
 isOk(x) ? console.log(x.value) : console.log(x.message)
