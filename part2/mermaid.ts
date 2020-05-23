@@ -1,12 +1,12 @@
 import { Node, isNodeRef, isNodeDecl, makeHeader, isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, makeNodeDecl, AtomicGraph, makeNodeRef, isCompoundGraph } from "./mermaid-ast"
-import { parseL4Exp, parseL4Program, AtomicExp, VarDecl, isVarDecl, isCompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, parseL4 } from "./L4-ast"
+import { parseL4Exp, parseL4Program, AtomicExp, VarDecl, isVarDecl, isCompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, Binding, isBinding } from "./L4-ast"
 import { isOk, Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
 import { rest, isEmpty, first } from "../shared/list"
 import { union, chain, map, reduce } from "ramda";
 import { parse as p, isToken } from "../shared/parser";
 import { isArray, isNumber, isString, isBoolean } from "../shared/type-predicates"
 import { SExpValue, isSymbolSExp, isEmptySExp, EmptySExp, SymbolSExp, CompoundSExp, isCompoundSExp } from "./L4-value"
-import { Sexp, Token, CompoundSexp } from "s-expression";
+import { Sexp } from "s-expression";
 
 /*  === Question 2.3 ===
     Signature: unparseMermaid(g)
@@ -149,7 +149,8 @@ export const mapExptoContent =
     isString(exp) ? mapAtomicValuesToContent(exp, expId) :
     isBoolean(exp) ? mapAtomicValuesToContent(exp, expId) :
     isArray(exp) ? mapCompoundExptoContent(exp, expId, forbbidenIds) :
-    makeFailure(`mapExptoContent: Unknown Expression: ${exp}`) 
+    isBinding(exp) ? mapCompoundExptoContent(exp, expId, forbbidenIds) :
+    makeFailure(`mapExptoContent: Unknown Expression: ${JSON.stringify(exp)}`) 
 
 /*
     Signature: mapAtomictoContent(exp, expId)
@@ -193,22 +194,28 @@ export const mapEmptyExpressionsToContent = (exp: EmptySExp, expId: string): Res
 export const mapCompoundExptoContent = (exp: Exp | CompoundSExp | Exp[], 
                                         expId: string, 
                                         forbbidenIds: string[]): Result<CompoundGraph> => {
+    //console.log("=== mapCompoundExptoContent ===")
+    //console.log("exp: ", JSON.stringify(exp))
+    //console.log("expId: ", JSON.stringify(expId))
+    //console.log("forbbidenIds: ", JSON.stringify(forbbidenIds))
     // Here we take all the expression's parameters and values generically
     // if exp is not an array, it means that it's an Compound(S)Exp. So take all the
     //      the keys and the values from the object (except "tag", it is not needed)
     // if exp is an array, it was a parameter of a previous Compound(S)Exp,
     //      so it has no keys. and the values are its elements
     const keys = !isArray(exp) ? rest(Object.keys(exp)) : [];
+    //console.log("keys: ", JSON.stringify(keys))
     const values = !isArray(exp) ? rest(Object.values(exp)) : exp;
+    //console.log("values: ", JSON.stringify(values))
 
     // Extract all the values names
     const valuesTags = map((v):string => "" === extractTag(v)
                                             ? keys[values.indexOf(v)] // in case of array
                                             : extractTag(v), values);
-
+    //console.log("valuesTags: ", JSON.stringify(valuesTags))
     // Rename all values names according to restrictions given
     const childrenIds = renameVars(valuesTags, forbbidenIds); 
-
+    //console.log("childrenIds: ", JSON.stringify(childrenIds))
     // convertValues - Convert each child from left to right
     // after converting each one, take all the NodeIds from its graph
     // and pass them as forbbiden to the next child
@@ -383,6 +390,8 @@ export const extractTag = (x: Exp | SExpValue) : string =>
         isSymbolSExp(x) ? x.tag :
         isEmptySExp(x) ? x.tag :
         isCompoundSExp(x) ? x.tag : 
+        isVarDecl(x) ? x.tag :
+        isBinding(x) ? x.tag :
         isNumber(x) ? "number" :
         isString(x) ? "string" :
         isBoolean(x) ? "boolean" : ""
@@ -412,11 +421,15 @@ export const extractNodesIdsFromContents = (contents: GraphContent[]) : string[]
 //  TODO: DELETE!
 //////////////////////////////////////////////////// 
 
-let x = L4toMermaid("(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1))")
+//let x = L4toMermaid("(lambda (x y)((lambda (x) (+ x y))(+ x x))1)")
+//let x = L4toMermaid("(if #t (+ 1 2) (+ 4 7))")
+//let x = L4toMermaid("(let ((a 1) (b 2)) (+ a b))")
+//let x = L4toMermaid("(set! a 4)")
+//let x = L4toMermaid("(letrec ((a 1) (b 2)) (+ a b))")
 //let x = L4toMermaid("(L4 (define my-list '(1 2)))")
 //let x = L4toMermaid("(L4 (+ 2 5))")
 //let x = L4toMermaid("(L4 (+ (/ 18 2) (* 7 17)))")
 //let x = L4toMermaid("(define my-list '(1 2))")
 //let x = L4toMermaid("(L4 1 #t “hello”)")
 //let x = L4toMermaid("(L4 \"hello\")")
-isOk(x) ? console.log(x.value) : console.log(x.message)
+//isOk(x) ? console.log(x.value) : console.log(x.message)
