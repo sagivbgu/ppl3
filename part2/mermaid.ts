@@ -2,7 +2,7 @@ import {AtomicGraph, CompoundGraph, Edge, Graph, GraphContent, isAtomicGraph, is
         isNodeRef, makeCompoundGraph, makeDir, makeEdge, makeGraph, makeHeader, makeNodeDecl, makeNodeRef,
         Node} from "./mermaid-ast"
 import {AtomicExp, Exp, isAtomicExp, isBinding, isCompoundExp, isDefineExp, isExp, isProgram, isVarDecl, Parsed,
-        parseL4Exp, parseL4Program, Program, VarDecl} from "./L4-ast"
+        parseL4Exp, parseL4Program, Program, VarDecl, parseL4} from "./L4-ast"
 import {bind, isOk, makeFailure, makeOk, mapResult, Result, safe2} from "../shared/result";
 import {first, isEmpty, rest} from "../shared/list"
 import {chain, map, reduce, union} from "ramda";
@@ -175,6 +175,8 @@ export const mapAtomictoContent = (exp: AtomicExp | VarDecl | SymbolSExp,
     Pre-conditions: true
 */
 export const mapAtomicValuesToContent = (exp: number | string | boolean, expId: string): Result<AtomicGraph> =>
+    exp === true ? makeOk(makeNodeDecl(expId,`${typeof(exp)}(#t)`)) :
+    exp === false ? makeOk(makeNodeDecl(expId,`${typeof(exp)}(#f)`)) :
     makeOk(makeNodeDecl(expId,`${typeof(exp)}(${exp})`));
 
 /*
@@ -198,33 +200,23 @@ export const mapEmptyExpressionsToContent = (exp: EmptySExp, expId: string): Res
 export const mapCompoundExptoContent = (exp: Exp | CompoundSExp | Exp[], 
                                         expId: string, 
                                         forbbidenIds: string[]): Result<CompoundGraph> => {
-    //console.log("=== mapCompoundExptoContent ===")
-    //console.log("exp: ", JSON.stringify(exp))
-    //console.log("expId: ", JSON.stringify(expId))
-    //console.log("forbbidenIds: ", JSON.stringify(forbbidenIds))
 
     // Here we take all the expression's parameters and values generically
-    // if exp is not an array, it means that it's an Compound(S)Exp. So take all the
+    // if exp is not an array, it means that it's a Compound(S)Exp. So take all the
     //      the keys and the values from the object (except "tag", it is not needed)
     // if exp is an array, it was a parameter of a previous Compound(S)Exp,
     //      so it has no keys. and the values are its elements
-                                            // (+ (/ 18 2) 7)
-    // AppExp = {tag: "AppExp", rator:[Cexp] , rands:[Cexp] }
     const keys = !isArray(exp) ? rest(Object.keys(exp)) : [];
-    //console.log("keys: ", JSON.stringify(keys))
 
     const values = !isArray(exp) ? rest(Object.values(exp)) : exp;
-    //console.log("values: ", JSON.stringify(values))
 
     // Extract all the values names
     const valuesTags = map((v):string => "" === extractTag(v)
                                             ? keys[values.indexOf(v)] // in case of array
                                             : extractTag(v), values);
-    //console.log("valuesTags: ", JSON.stringify(valuesTags))
-    // Rename all values names according to restrictions given
 
+    // Rename all values names according to restrictions given
     const childrenIds = renameVars(valuesTags, forbbidenIds); 
-    //console.log("childrenIds: ", JSON.stringify(childrenIds))
 
     // convertValues - Convert each child from left to right
     // after converting each one, take all the NodeIds from its graph
@@ -365,15 +357,15 @@ export const renameVars = (vars: string[], forbbidenNames: string[]): string[] =
 
     // Helper function to match UpperCase Mermaid convention
     const upperCaseFirstLetter = (s: string) : string => 
-        ["number", "string", "boolean"].includes(s) ? s : 
         s.charAt(0).toUpperCase() + s.substring(1);
-    
+
     const renameVar = (s: string): string => {
         // get the matching var generator
         const pos = setOfVars.indexOf(s);
         const varGen = varGens[pos];
         // try to rename
-        const tempName = upperCaseFirstLetter(varGen(s));
+        const tempName = ["number", "string", "boolean"].includes(s) ? varGen(s) :
+                          upperCaseFirstLetter(varGen(s));
         // if the name is in the forbbidenNams, try again
         return forbbidenNames.indexOf(tempName) !== -1 ? renameVar(s) : tempName;
     };

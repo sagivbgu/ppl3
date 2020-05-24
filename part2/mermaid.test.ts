@@ -39,4 +39,21 @@ describe('Mermaid', () => {
 //let x = L4toMermaid("(define my-list '(1 2))")
 //let x = L4toMermaid("(L4 1 #t “hello”)")
 //let x = L4toMermaid("(L4 \"hello\")")
+//let x = L4toMermaid(`(L4 
+//(define makeAdder (lambda (n) (lambda (y) (+ y n))))
+//(define a6 (makeAdder 6))
+//(define a7 (makeAdder 7))
+//(+ (a6 1) (a7 1)))`)
+//let x = L4toMermaid(`(L4 
+//(define f
+//    (lambda (x)
+//      (if (= x 0)
+//          1
+//          (* x (f (- x 1))))))
+//  (f 5))`);
+//let x = L4toMermaid("(set! x (+ 1 2))");
+//let x = L4toMermaid(`(letrec ((a 1) (b #t)) (if b a (+ a 1)))`);
+//let x = L4toMermaid(`(L4 (define my-list '(#f #t "hello" 2 + (quote x))))`);
+//let x = parseL4(`(L4 (define my-list (quote x)))`);
+//let x = L4toMermaid(`(L4 (define my-list '(1 77)) (boolean? (cdr my-list)))`);
 //isOk(x) ? console.log(x.value) : console.log(x.message)
