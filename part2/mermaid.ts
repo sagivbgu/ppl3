@@ -1,12 +1,15 @@
-import { Node, isNodeRef, isNodeDecl, makeHeader, isAtomicGraph, GraphContent, Graph, makeGraph, makeDir, makeCompoundGraph, Edge, makeEdge, CompoundGraph, makeNodeDecl, AtomicGraph, makeNodeRef, isCompoundGraph } from "./mermaid-ast"
-import { parseL4Exp, parseL4Program, AtomicExp, VarDecl, isVarDecl, isCompoundExp, isAtomicExp, Parsed, Exp, isProgram, Program,  isExp, isDefineExp, Binding, isBinding } from "./L4-ast"
-import { isOk, Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
-import { rest, isEmpty, first } from "../shared/list"
-import { union, chain, map, reduce } from "ramda";
-import { parse as p, isToken } from "../shared/parser";
-import { isArray, isNumber, isString, isBoolean } from "../shared/type-predicates"
-import { SExpValue, isSymbolSExp, isEmptySExp, EmptySExp, SymbolSExp, CompoundSExp, isCompoundSExp } from "./L4-value"
-import { Sexp } from "s-expression";
+import {AtomicGraph, CompoundGraph, Edge, Graph, GraphContent, isAtomicGraph, isCompoundGraph, isNodeDecl,
+        isNodeRef, makeCompoundGraph, makeDir, makeEdge, makeGraph, makeHeader, makeNodeDecl, makeNodeRef,
+        Node} from "./mermaid-ast"
+import {AtomicExp, Exp, isAtomicExp, isBinding, isCompoundExp, isDefineExp, isExp, isProgram, isVarDecl, Parsed,
+        parseL4Exp, parseL4Program, Program, VarDecl} from "./L4-ast"
+import {bind, isOk, makeFailure, makeOk, mapResult, Result, safe2} from "../shared/result";
+import {first, isEmpty, rest} from "../shared/list"
+import {chain, map, reduce, union} from "ramda";
+import {isToken, parse as p} from "../shared/parser";
+import {isArray, isBoolean, isNumber, isString} from "../shared/type-predicates"
+import {CompoundSExp, EmptySExp, isCompoundSExp, isEmptySExp, isSymbolSExp, SExpValue, SymbolSExp} from "./L4-value"
+import {Sexp} from "s-expression";
 
 const defaultGraphDirection = "TD";
 
@@ -19,20 +22,20 @@ const defaultGraphDirection = "TD";
 export const unparseMermaid = (g: Graph): Result<string> =>
     bind(unparseGraphContent(g.content), 
         (contentStr: string): Result<string> =>
-            makeOk(`graph ${g.header.dir.val}${contentStr}`))
+            makeOk(`graph ${g.header.dir.val}${contentStr}`));
 
 export const unparseGraphContent = (gc: GraphContent): Result<string> =>
     isCompoundGraph(gc) ? unparseCompoundGraph(gc) :
     isAtomicGraph(gc) ? unparseNode(gc) :
-    makeFailure("unparseGraphContent: Not an option")
+    makeFailure("unparseGraphContent: Not an option");
 
 export const unparseCompoundGraph = (g: CompoundGraph): Result<string> =>
     bind(mapResult(unparseEdge, g.edges), 
         (edgeStrs: string[]): Result<string> =>
-            makeOk(reduce(concatLines,"" , edgeStrs)))
+            makeOk(reduce(concatLines,"" , edgeStrs)));
 
 export const concatLines = (strA: string, strB: string): string =>
-    strA + '\n\t' + strB
+    strA + '\n\t' + strB;
 
 export const unparseEdge = (edge: Edge): Result<string> =>
     safe2((fromNode: string, toNode: string): Result<string> => 
@@ -41,12 +44,12 @@ export const unparseEdge = (edge: Edge): Result<string> =>
             makeOk(`${fromNode} -->|${edge.label}| ${toNode}`) :
         makeOk(`${fromNode} --> ${toNode}`))
         
-        (unparseNode(edge.from), (unparseNode(edge.to))) 
+        (unparseNode(edge.from), (unparseNode(edge.to)));
 
 export const unparseNode = (node: Node): Result<string> =>
     isNodeRef(node) ? makeOk(`${node.id}`) :
     isNodeDecl(node) ? makeOk(`${node.id}["${node.label}"]`) :
-    makeFailure("unparseNode: not an option")
+    makeFailure("unparseNode: not an option");
 
 /*  === Question 2.3 ===
     Signature: L4toMermaid(concrete)
@@ -63,17 +66,17 @@ bind(p(concrete),
         isArray(sexp) ?
             first(sexp) === "L4" ? L4ProgramToMermaid(sexp) :
             L4ExpToMermaid(sexp) :
-        makeFailure("Unexpected type " + sexp))
+        makeFailure("Unexpected type " + sexp));
 
 export const L4ProgramToMermaid = (sexp: Sexp) : Result<string> =>
     bind(parseL4Program(sexp), 
         (p: Program): Result<string> => 
-            bind(mapL4toMermaid(p), unparseMermaid))
+            bind(mapL4toMermaid(p), unparseMermaid));
 
 export const L4ExpToMermaid = (sexp: Sexp): Result<string> =>
     bind(parseL4Exp(sexp), 
         (p: Exp): Result<string> => 
-            bind(mapL4toMermaid(p), unparseMermaid))
+            bind(mapL4toMermaid(p), unparseMermaid));
         
 /*  === Question 2.2 ===
     Signature: mapL4toMermaid(exp)
@@ -84,7 +87,7 @@ export const L4ExpToMermaid = (sexp: Sexp): Result<string> =>
 export const mapL4toMermaid = (exp: Parsed): Result<Graph> => 
     isProgram(exp) ? mapProgramtoMermaid(exp) : 
     isExp(exp) ? mapExpToMermaid(exp) :
-    makeFailure("mapL4toMermaid: Not an option")
+    makeFailure("mapL4toMermaid: Not an option");
 
 /*
     Signature: mapProgramtoMermaid(program)
@@ -112,7 +115,7 @@ export const mapProgramtoMermaid = (program: Program): Result<Graph> => {
     Pre-conditions: true
 */
 export const mapExpToMermaid = (exp: Exp): Result<Graph> => {
-    const newName = renameVars([exp.tag], [])
+    const newName = renameVars([exp.tag], []);
     return bind(mapExptoContent(exp, newName[0], newName), 
             (g: GraphContent): Result<Graph> =>
                 isCompoundGraph(g) ? bind(changeRootToNodeDecl(g, exp.tag), 
@@ -151,7 +154,7 @@ export const mapExptoContent =
     isBoolean(exp) ? mapAtomicValuesToContent(exp, expId) :
     isArray(exp) ? mapCompoundExptoContent(exp, expId, forbbidenIds) :
     isBinding(exp) ? mapCompoundExptoContent(exp, expId, forbbidenIds) :
-    makeFailure(`mapExptoContent: Unknown Expression: ${JSON.stringify(exp)}`) 
+    makeFailure(`mapExptoContent: Unknown Expression: ${JSON.stringify(exp)}`);
 
 /*
     Signature: mapAtomictoContent(exp, expId)
@@ -163,7 +166,7 @@ export const mapAtomictoContent = (exp: AtomicExp | VarDecl | SymbolSExp,
                                   expId: string): Result<AtomicGraph> => 
     Object.values(exp).length === 2 ? 
     makeOk(makeNodeDecl(expId,`${exp.tag}(${Object.values(exp)[1]})`)) :
-    makeFailure("mapAtomictoContent: Atomic Expression with more than 2 keys")
+    makeFailure("mapAtomictoContent: Atomic Expression with more than 2 keys");
 
 /*
     Signature: mapAtomicValuesToContent(exp, expId)
@@ -172,7 +175,7 @@ export const mapAtomictoContent = (exp: AtomicExp | VarDecl | SymbolSExp,
     Pre-conditions: true
 */
 export const mapAtomicValuesToContent = (exp: number | string | boolean, expId: string): Result<AtomicGraph> =>
-    makeOk(makeNodeDecl(expId,`${typeof(exp)}(${exp})`))
+    makeOk(makeNodeDecl(expId,`${typeof(exp)}(${exp})`));
 
 /*
     Signature: mapEmptyExpressionsToContent(exp, expId)
@@ -181,7 +184,7 @@ export const mapAtomicValuesToContent = (exp: number | string | boolean, expId: 
     Pre-conditions: true
 */
 export const mapEmptyExpressionsToContent = (exp: EmptySExp, expId: string): Result<AtomicGraph> =>
-    makeOk(makeNodeDecl(expId,`${exp.tag}`))
+    makeOk(makeNodeDecl(expId,`${exp.tag}`));
 
 /*
     Signature: mapCompoundExptoContent(exp, expId, forbbidenIds)
@@ -291,7 +294,7 @@ export const convertValues = (exps: Exp[], expId: string, childrenIds: string[],
                             // return to reduce the united array of all the prevs and this one
                             makeOk(union(convertedExps.value, [g]))))
             
-        , makeOk([]), exps)
+        , makeOk([]), exps);
     
 
 ////////////////////////////////////////////////////
@@ -310,7 +313,7 @@ export const joinGraphsEdges = (graphs: GraphContent[]) : Result<CompoundGraph> 
     // otherwise, it is not neccessary, because the parent created an edge for it
     makeOk(makeCompoundGraph(chain((g: GraphContent) : Edge[] => 
                                 isCompoundGraph(g) ? g.edges : []
-                            ,graphs)))
+                            ,graphs)));
 
 /*
     Signature: getGraphRoot(graph)
@@ -337,7 +340,7 @@ safe2((root: Node, edges: Edge[]) =>
                                      first(edges).label)]),
          makeCompoundGraph(rest(edges))]))
 
-(getGraphRoot(graph), makeOk(graph.edges))
+(getGraphRoot(graph), makeOk(graph.edges));
 
 ////////////////////////////////////////////////////
 //  Utility Methods regarding Renaming Nodes
@@ -354,16 +357,16 @@ safe2((root: Node, edges: Edge[]) =>
 */                         
 export const renameVars = (vars: string[], forbbidenNames: string[]): string[] => {
     // make sure vars is unique
-    const setOfVars = union([], vars)
+    const setOfVars = union([], vars);
 
     // For each type create its OWN var generator (so it will get its own counter)
     const varGens = map((x: string): (v: string) => string => 
-                            makeVarGen(), setOfVars)
+                            makeVarGen(), setOfVars);
 
     // Helper function to match UpperCase Mermaid convention
     const upperCaseFirstLetter = (s: string) : string => 
         ["number", "string", "boolean"].includes(s) ? s : 
-        s.charAt(0).toUpperCase() + s.substring(1)
+        s.charAt(0).toUpperCase() + s.substring(1);
     
     const renameVar = (s: string): string => {
         // get the matching var generator
@@ -372,8 +375,7 @@ export const renameVars = (vars: string[], forbbidenNames: string[]): string[] =
         // try to rename
         const tempName = upperCaseFirstLetter(varGen(s));
         // if the name is in the forbbidenNams, try again
-        const newName = forbbidenNames.indexOf(tempName) !== -1 ? renameVar(s) : tempName
-        return newName;
+        return forbbidenNames.indexOf(tempName) !== -1 ? renameVar(s) : tempName;
     };
 
     return map(renameVar, vars);
@@ -390,7 +392,7 @@ export const makeVarGen = (): (v: string) => string => {
 /*
     Signature: extractTag(x)
     Type: [Exp | SExpValue ->string>]
-    Purpose: Self-Explenatory
+    Purpose: Self-Explanatory
     Pre-conditions: true
 */
 export const extractTag = (x: Exp | SExpValue) : string =>
@@ -402,25 +404,25 @@ export const extractTag = (x: Exp | SExpValue) : string =>
         isBinding(x) ? x.tag :
         isNumber(x) ? "number" :
         isString(x) ? "string" :
-        isBoolean(x) ? "boolean" : ""
+        isBoolean(x) ? "boolean" : "";
 
 /*
     Signature: extractNodesIdsFromEdges(edges)
     Type: [Edge[] -> string[] ]
-    Purpose: Self-Explenatory
+    Purpose: Self-Explanatory
     Pre-conditions: true
 */
 export const extractNodesIdsFromEdges = (edges: Edge[]) : string[] =>
     union(map((e: Edge): string => e.from.id, edges), 
-          map((e: Edge): string => e.to.id, edges))
+          map((e: Edge): string => e.to.id, edges));
 
 /*
     Signature: extractNodesIdsFromContents(contents)
     Type: [GraphContent[] -> string[] ]
-    Purpose: Self-Explenatory
+    Purpose: Self-Explanatory
     Pre-conditions: true
 */
 export const extractNodesIdsFromContents = (contents: GraphContent[]) : string[] =>
     chain((x: string[]): string[] => x, 
         map((g: GraphContent): string[] => 
-            isCompoundGraph(g) ? extractNodesIdsFromEdges(g.edges) : [g.id] ,contents))
+            isCompoundGraph(g) ? extractNodesIdsFromEdges(g.edges) : [g.id] ,contents));
