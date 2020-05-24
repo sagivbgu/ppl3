@@ -8,6 +8,8 @@ import { isArray, isNumber, isString, isBoolean } from "../shared/type-predicate
 import { SExpValue, isSymbolSExp, isEmptySExp, EmptySExp, SymbolSExp, CompoundSExp, isCompoundSExp } from "./L4-value"
 import { Sexp } from "s-expression";
 
+const defaultGraphDirection = "TD";
+
 /*  === Question 2.3 ===
     Signature: unparseMermaid(g)
     Type: [Graph -> Result<string>]
@@ -100,8 +102,8 @@ export const mapProgramtoMermaid = (program: Program): Result<Graph> => {
                 (firstEdge: Edge): Result<Graph> => 
                     bind(joinGraphsEdges([makeCompoundGraph([firstEdge]), expsGraph]), 
                         (unitedGraph: CompoundGraph): Result<Graph> =>
-                            makeOk(makeGraph(makeHeader(makeDir("TD")), unitedGraph)))))
-}
+                            makeOk(makeGraph(makeHeader(makeDir(defaultGraphDirection)), unitedGraph)))))
+};
     
 /*
     Signature: mapExpToMermaid(exp)
@@ -114,13 +116,12 @@ export const mapExpToMermaid = (exp: Exp): Result<Graph> => {
     return bind(mapExptoContent(exp, newName[0], newName), 
             (g: GraphContent): Result<Graph> =>
                 isCompoundGraph(g) ? bind(changeRootToNodeDecl(g, exp.tag), 
-                                        (c: CompoundGraph): Result<Graph> =>
-                                            
-                                        makeOk(makeGraph(makeHeader(makeDir("TD")), c))) :
+                                        (c: CompoundGraph): Result<Graph> => 
+                                        makeOk(makeGraph(makeHeader(makeDir(defaultGraphDirection)), c))) :
                 isAtomicGraph(g) ?
-                    makeOk(makeGraph(makeHeader(makeDir("TD")), g)) :
+                    makeOk(makeGraph(makeHeader(makeDir(defaultGraphDirection)), g)) :
                 makeFailure("mapExpToMermaid: Not an option"))
-}
+};
 
 /*
     Signature: mapExptoContent(exp, expId, forbbidenIds)
@@ -198,13 +199,17 @@ export const mapCompoundExptoContent = (exp: Exp | CompoundSExp | Exp[],
     //console.log("exp: ", JSON.stringify(exp))
     //console.log("expId: ", JSON.stringify(expId))
     //console.log("forbbidenIds: ", JSON.stringify(forbbidenIds))
+
     // Here we take all the expression's parameters and values generically
     // if exp is not an array, it means that it's an Compound(S)Exp. So take all the
     //      the keys and the values from the object (except "tag", it is not needed)
     // if exp is an array, it was a parameter of a previous Compound(S)Exp,
     //      so it has no keys. and the values are its elements
+                                            // (+ (/ 18 2) 7)
+    // AppExp = {tag: "AppExp", rator:[Cexp] , rands:[Cexp] }
     const keys = !isArray(exp) ? rest(Object.keys(exp)) : [];
     //console.log("keys: ", JSON.stringify(keys))
+
     const values = !isArray(exp) ? rest(Object.values(exp)) : exp;
     //console.log("values: ", JSON.stringify(values))
 
@@ -214,8 +219,10 @@ export const mapCompoundExptoContent = (exp: Exp | CompoundSExp | Exp[],
                                             : extractTag(v), values);
     //console.log("valuesTags: ", JSON.stringify(valuesTags))
     // Rename all values names according to restrictions given
+
     const childrenIds = renameVars(valuesTags, forbbidenIds); 
     //console.log("childrenIds: ", JSON.stringify(childrenIds))
+
     // convertValues - Convert each child from left to right
     // after converting each one, take all the NodeIds from its graph
     // and pass them as forbbiden to the next child
@@ -257,7 +264,7 @@ export const mapCompoundExptoContent = (exp: Exp | CompoundSExp | Exp[],
                             (unitedChildren: CompoundGraph): Result<CompoundGraph> =>
                                 joinGraphsEdges([makeCompoundGraph(childrenEdges), unitedChildren]))))
 
-    }
+    };
 
 /*
     Signature: convertValues(exp, expId, childrenIds, forbbidenIds)
@@ -344,7 +351,7 @@ safe2((root: Node, edges: Edge[]) =>
                   Meaning, AppExp_i and ProcExp_j are incremented independently
                 - each var generated is unique (doesn't appear in forbbidenNames)
     Pre-conditions: true
-*/
+*/                         
 export const renameVars = (vars: string[], forbbidenNames: string[]): string[] => {
     // make sure vars is unique
     const setOfVars = union([], vars)
@@ -355,6 +362,7 @@ export const renameVars = (vars: string[], forbbidenNames: string[]): string[] =
 
     // Helper function to match UpperCase Mermaid convention
     const upperCaseFirstLetter = (s: string) : string => 
+        ["number", "string", "boolean"].includes(s) ? s : 
         s.charAt(0).toUpperCase() + s.substring(1)
     
     const renameVar = (s: string): string => {
@@ -366,7 +374,7 @@ export const renameVars = (vars: string[], forbbidenNames: string[]): string[] =
         // if the name is in the forbbidenNams, try again
         const newName = forbbidenNames.indexOf(tempName) !== -1 ? renameVar(s) : tempName
         return newName;
-    }
+    };
 
     return map(renameVar, vars);
 };
@@ -416,20 +424,3 @@ export const extractNodesIdsFromContents = (contents: GraphContent[]) : string[]
     chain((x: string[]): string[] => x, 
         map((g: GraphContent): string[] => 
             isCompoundGraph(g) ? extractNodesIdsFromEdges(g.edges) : [g.id] ,contents))
-
-////////////////////////////////////////////////////
-//  TODO: DELETE!
-//////////////////////////////////////////////////// 
-
-//let x = L4toMermaid("(lambda (x y)((lambda (x) (+ x y))(+ x x))1)")
-//let x = L4toMermaid("(if #t (+ 1 2) (+ 4 7))")
-//let x = L4toMermaid("(let ((a 1) (b 2)) (+ a b))")
-//let x = L4toMermaid("(set! a 4)")
-//let x = L4toMermaid("(letrec ((a 1) (b 2)) (+ a b))")
-//let x = L4toMermaid("(L4 (define my-list '(1 2)))")
-//let x = L4toMermaid("(L4 (+ 2 5))")
-//let x = L4toMermaid("(L4 (+ (/ 18 2) (* 7 17)))")
-//let x = L4toMermaid("(define my-list '(1 2))")
-//let x = L4toMermaid("(L4 1 #t “hello”)")
-//let x = L4toMermaid("(L4 \"hello\")")
-//isOk(x) ? console.log(x.value) : console.log(x.message)

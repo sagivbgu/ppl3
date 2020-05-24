@@ -19,4 +19,24 @@ describe('Mermaid', () => {
     it('convert empty program body', () => {
         expect(bind(mapL4toMermaid(makeProgram([])), unparseMermaid)).to.deep.equal(makeOk(`graph TD\n\tProgram_1["Program"] -->|exps| Exps_1[":"]`));
     });
+    it('convert empty program body', () => {
+        expect(bind(mapL4toMermaid(makeProgram([])), unparseMermaid)).to.deep.equal(makeOk(`graph TD\n\tProgram_1["Program"] -->|exps| Exps_1[":"]`));
+    });
 });
+
+////////////////////////////////////////////////////
+//  TODO: DELETE!
+//////////////////////////////////////////////////// 
+
+//let x = L4toMermaid("(lambda (x y)((lambda (x) (+ x y))(+ x x))1)")
+//let x = L4toMermaid("(if #t (+ 1 2) (+ 4 7))")
+//let x = L4toMermaid("(let ((a 1) (b 2)) (+ a b))")
+//let x = L4toMermaid("(set! a 4)")
+//let x = L4toMermaid("(letrec ((a 1) (b 2)) (+ a b))")
+//let x = L4toMermaid("(L4 (define my-list '(1 2)))")
+//let x = L4toMermaid("(L4 (+ 2 5))")
+//let x = L4toMermaid("(L4 (+ (/ 18 2) (* 7 17)))")
+//let x = L4toMermaid("(define my-list '(1 2))")
+//let x = L4toMermaid("(L4 1 #t “hello”)")
+//let x = L4toMermaid("(L4 \"hello\")")
+//isOk(x) ? console.log(x.value) : console.log(x.message)

@@ -20,24 +20,24 @@ import { reduce } from "ramda";
 export type GraphContent = AtomicGraph | CompoundGraph;
 export type Node = NodeDecl | NodeRef;
 export type AtomicGraph = NodeDecl;
+export type DirectionType = "LR" | "TD";
 
 export interface Graph { tag: "Graph"; header: Header; content: GraphContent; }
 export interface Header { tag: "Header"; dir: Dir; }
-export interface Dir { tag: "Dir"; val: string; }
+export interface Dir { tag: "Dir"; val: DirectionType ; }
 export interface CompoundGraph { tag: "CompoundGraph"; edges: Edge[]; }
 
 export interface Edge { tag: "Edge"; from: Node; to: Node; label?: string; }
 
 export interface NodeDecl { tag: "NodeDecl"; id: string; label: string; }
 export interface NodeRef { tag: "NodeRef"; id: string; }
-export interface EdgeLabel {tag: "EdgeLabel"; label: string; }
 
 // Type value constructors for disjoint types
 export const makeGraph = (head: Header, content: GraphContent) : Graph => 
                                     ({tag: "Graph", header: head, content: content});
 export const makeHeader = (dir: Dir) : Header => 
                                     ({tag: "Header", dir: dir});
-export const makeDir = (val: string) : Dir => 
+export const makeDir = (val: DirectionType) : Dir => 
                                     ({tag: "Dir", val: val});
 export const makeCompoundGraph = (edges: Edge[]) : CompoundGraph => 
                                     ({tag: "CompoundGraph", edges: edges});
@@ -47,8 +47,6 @@ export const makeNodeDecl = (id: string, label: string) : NodeDecl =>
                                     ({tag: "NodeDecl", id: id, label: label});
 export const makeNodeRef = (id: string) : NodeRef =>
                                     ({tag: "NodeRef", id: id});
-export const makeEdgeLabel = (label: string) : EdgeLabel =>
-                                    ({tag: "EdgeLabel", label: label});
 
 // Type predicates for disjoint types
 export const isGraph = (x: any): x is Graph => x.tag === "Graph";
@@ -58,7 +56,6 @@ export const isCompoundGraph = (x: any): x is CompoundGraph => x.tag === "Compou
 export const isEdge = (x: any): x is Edge => x.tag === "Edge";
 export const isNodeDecl = (x: any): x is NodeDecl => x.tag === "NodeDecl";
 export const isNodeRef = (x: any): x is NodeRef => x.tag === "NodeRef";
-export const isEdgeLabel = (x: any): x is EdgeLabel => x.tag === "EdgeLabel";
 
 export const isAtomicGraph = (x: any): x is AtomicGraph => isNodeDecl(x);
 export const isGraphContent = (x: any): x is GraphContent => isAtomicGraph(x) || isCompoundGraph(x);
