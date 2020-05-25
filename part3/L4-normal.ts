@@ -5,8 +5,7 @@ import {filter, map, zip} from "ramda";
 import {
     CExp, Exp, IfExp, Program, parseL4Exp, isLetExp, LetExp, Binding, PrimOp,
     VarDecl, makeLetExp, makeBinding, isAppExp, isBoolExp, isCExp, isDefineExp,
-    isIfExp, isLitExp, isNumExp, isPrimOp, isProcExp, isStrExp, isVarRef, AppExp,
-    ProcExp } from "./L4-ast";
+    isIfExp, isLitExp, isNumExp, isPrimOp, isProcExp, isStrExp, isVarRef, AppExp } from "./L4-ast";
 import { applyEnv, makeEmptyEnv, Env, makeExtEnv, isEmptyEnv, ExtEnv } from './L4-env-normal';
 import { applyPrimitive } from "./evalPrimitive";
 import {Value, makeClosure, isClosure, Closure} from "./L4-value";
