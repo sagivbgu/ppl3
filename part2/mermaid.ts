@@ -165,7 +165,9 @@ export const mapExptoContent =
 export const mapAtomictoContent = (exp: AtomicExp | VarDecl | SymbolSExp, 
                                   expId: string): Result<AtomicGraph> => 
     Object.values(exp).length === 2 ? 
-    makeOk(makeNodeDecl(expId,`${exp.tag}(${Object.values(exp)[1]})`)) :
+        Object.values(exp)[1] === true ? makeOk(makeNodeDecl(expId,`${exp.tag}(#t)`)) :
+        Object.values(exp)[1] === false ? makeOk(makeNodeDecl(expId,`${exp.tag}(#f)`)) :
+        makeOk(makeNodeDecl(expId,`${exp.tag}(${Object.values(exp)[1]})`)) :
     makeFailure("mapAtomictoContent: Atomic Expression with more than 2 keys");
 
 /*
